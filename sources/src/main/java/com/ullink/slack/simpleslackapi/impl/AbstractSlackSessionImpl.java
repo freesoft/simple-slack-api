@@ -5,31 +5,39 @@ import com.ullink.slack.simpleslackapi.listeners.*;
 import com.ullink.slack.simpleslackapi.replies.SlackMessageReply;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 abstract class AbstractSlackSessionImpl implements SlackSession
 {
 
-    protected Map<String, SlackChannel>            channels                 = new HashMap<>();
-    protected Map<String, SlackUser>               users                    = new HashMap<>();
+    protected Map<String, SlackChannel>            channels                 = new ConcurrentHashMap<>();
+    protected Map<String, SlackUser>               users                    = new ConcurrentHashMap<>();
+    protected Map<String, SlackIntegration>        integrations             = new ConcurrentHashMap<>();
     protected SlackPersona                         sessionPersona;
-    protected SlackTeam                            team;
+    protected SlackTeam team;
 
-    protected List<SlackChannelArchivedListener>   channelArchiveListener   = new ArrayList<>();
-    protected List<SlackChannelCreatedListener>    channelCreateListener    = new ArrayList<>();
-    protected List<SlackChannelDeletedListener>    channelDeleteListener    = new ArrayList<>();
-    protected List<SlackChannelRenamedListener>    channelRenamedListener   = new ArrayList<>();
-    protected List<SlackChannelUnarchivedListener> channelUnarchiveListener = new ArrayList<>();
-    protected List<SlackGroupJoinedListener>       groupJoinedListener      = new ArrayList<>();
-    protected List<SlackMessageDeletedListener>    messageDeletedListener   = new ArrayList<>();
-    protected List<SlackMessagePostedListener>     messagePostedListener    = new ArrayList<>();
-    protected List<SlackMessageUpdatedListener>    messageUpdatedListener   = new ArrayList<>();
-    protected List<SlackConnectedListener>         slackConnectedListener   = new ArrayList<>();
-    protected List<ReactionAddedListener>          reactionAddedListener    = new ArrayList<>();
-    protected List<ReactionRemovedListener>        reactionRemovedListener  = new ArrayList<>();
-    protected List<SlackUserChangeListener>        slackUserChangeListener  = new ArrayList<>();
-    protected List<PinAddedListener>               pinAddedListener         = new ArrayList<>();
-    protected List<PinRemovedListener>             pinRemovedListener       = new ArrayList<>();
-    protected List<SlackDisconnectedListener> slackDisconnectedListener = new ArrayList<>();
+    protected List<SlackChannelArchivedListener>   channelArchiveListener   = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelCreatedListener>    channelCreateListener    = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelDeletedListener>    channelDeleteListener    = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelRenamedListener>    channelRenamedListener   = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelUnarchivedListener> channelUnarchiveListener = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelJoinedListener>     channelJoinedListener    = new CopyOnWriteArrayList<>();
+    protected List<SlackChannelLeftListener>       channelLeftListener      = new CopyOnWriteArrayList<>();
+    protected List<SlackGroupJoinedListener>       groupJoinedListener      = new CopyOnWriteArrayList<>();
+    protected List<SlackMessageDeletedListener>    messageDeletedListener   = new CopyOnWriteArrayList<>();
+    protected List<SlackMessagePostedListener>     messagePostedListener    = new CopyOnWriteArrayList<>();
+    protected List<SlackMessageUpdatedListener>    messageUpdatedListener   = new CopyOnWriteArrayList<>();
+    protected List<SlackConnectedListener>         slackConnectedListener   = new CopyOnWriteArrayList<>();
+    protected List<ReactionAddedListener>          reactionAddedListener    = new CopyOnWriteArrayList<>();
+    protected List<ReactionRemovedListener>        reactionRemovedListener  = new CopyOnWriteArrayList<>();
+    protected List<SlackUserChangeListener>        slackUserChangeListener  = new CopyOnWriteArrayList<>();
+    protected List<SlackTeamJoinListener>          slackTeamJoinListener    = new CopyOnWriteArrayList<>();
+    protected List<PinAddedListener>               pinAddedListener         = new CopyOnWriteArrayList<>();
+    protected List<PinRemovedListener>             pinRemovedListener       = new CopyOnWriteArrayList<>();
+    protected List<PresenceChangeListener>         presenceChangeListener   = new CopyOnWriteArrayList<>();
+    protected List<SlackDisconnectedListener>     slackDisconnectedListener = new CopyOnWriteArrayList<>();
+    protected List<UserTypingListener>             userTypingListener       = new CopyOnWriteArrayList<>();
 
     static final SlackChatConfiguration            DEFAULT_CONFIGURATION    = SlackChatConfiguration.getConfiguration().asUser();
     static final boolean                           DEFAULT_UNFURL           = true;
@@ -50,6 +58,11 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     public Collection<SlackUser> getUsers()
     {
         return new ArrayList<>(users.values());
+    }
+
+    @Override
+    public Collection<SlackIntegration> getIntegrations() {
+        return new ArrayList<>(integrations.values());
     }
 
     @Override
@@ -89,7 +102,7 @@ abstract class AbstractSlackSessionImpl implements SlackSession
             // direct channel case
             if (channelId != null && channelId.startsWith("D"))
             {
-                toReturn = new SlackChannelImpl(channelId, "", "", "", true);
+                toReturn = new SlackChannel(channelId, "", "", "", true, false, false);
             }
         }
         return toReturn;
@@ -119,12 +132,18 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     {
         for (SlackUser user : users.values())
         {
-            if (userMail.equals(user.getUserMail()))
+            if (userMail.equalsIgnoreCase(user.getUserMail()))
             {
                 return user;
             }
         }
         return null;
+    }
+
+    @Override
+    public SlackIntegration findIntegrationById(String integrationId)
+    {
+        return integrations.get(integrationId);
     }
 
     @Override
@@ -192,7 +211,59 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     }
 
     @Override
-    public void addchannelArchivedListener(SlackChannelArchivedListener listener)
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, SlackPreparedMessage preparedMessage)
+    {
+        return sendEphemeralMessage(channel, user, preparedMessage, DEFAULT_CONFIGURATION);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message, SlackAttachment attachment, SlackChatConfiguration chatConfiguration, boolean unfurl)
+    {
+        SlackPreparedMessage preparedMessage = new SlackPreparedMessage.Builder()
+                .withMessage(message)
+                .withUnfurl(unfurl)
+                .addAttachment(attachment)
+                .build();
+
+        return sendEphemeralMessage(channel, user, preparedMessage, chatConfiguration);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message, SlackAttachment attachment, SlackChatConfiguration chatConfiguration)
+    {
+        return sendEphemeralMessage(channel, user, message, attachment, chatConfiguration, DEFAULT_UNFURL);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message, SlackAttachment attachment, boolean unfurl)
+    {
+        return sendEphemeralMessage(channel, user, message, attachment, DEFAULT_CONFIGURATION, unfurl);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message, SlackAttachment attachment)
+    {
+        return sendEphemeralMessage(channel, user, message, attachment, DEFAULT_CONFIGURATION);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message, boolean unfurl)
+    {
+        SlackPreparedMessage preparedMessage = new SlackPreparedMessage.Builder()
+                .withMessage(message)
+                .withUnfurl(unfurl)
+                .build();
+        return sendEphemeralMessage(channel, user, preparedMessage, DEFAULT_CONFIGURATION);
+    }
+
+    @Override
+    public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, String message)
+    {
+        return sendEphemeralMessage(channel, user, message, DEFAULT_UNFURL);
+    }
+
+    @Override
+    public void addChannelArchivedListener(SlackChannelArchivedListener listener)
     {
         channelArchiveListener.add(listener);
     }
@@ -204,7 +275,7 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     }
 
     @Override
-    public void addchannelCreatedListener(SlackChannelCreatedListener listener)
+    public void addChannelCreatedListener(SlackChannelCreatedListener listener)
     {
         channelCreateListener.add(listener);
     }
@@ -216,7 +287,7 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     }
 
     @Override
-    public void addchannelDeletedListener(SlackChannelDeletedListener listener)
+    public void addChannelDeletedListener(SlackChannelDeletedListener listener)
     {
         channelDeleteListener.add(listener);
     }
@@ -285,6 +356,30 @@ abstract class AbstractSlackSessionImpl implements SlackSession
     public void removeMessageUpdatedListener(SlackMessageUpdatedListener listener)
     {
         messageUpdatedListener.remove(listener);
+    }
+
+    @Override
+    public void addChannelJoinedListener(SlackChannelJoinedListener listener)
+    {
+        channelJoinedListener.add(listener);
+    }
+
+    @Override
+    public void removeChannelJoinedListener(SlackChannelJoinedListener listener)
+    {
+        channelJoinedListener.remove(listener);
+    }
+
+    @Override
+    public void addChannelLeftListener(SlackChannelLeftListener listener)
+    {
+        channelLeftListener.add(listener);
+    }
+
+    @Override
+    public void removeChannelLeftListener(SlackChannelLeftListener listener)
+    {
+        channelLeftListener.remove(listener);
     }
 
     @Override
@@ -357,6 +452,19 @@ abstract class AbstractSlackSessionImpl implements SlackSession
         slackUserChangeListener.remove(listener);
     }
 
+    @Override
+    public void addSlackTeamJoinListener(SlackTeamJoinListener listener)
+    {
+        slackTeamJoinListener.add(listener);
+    }
+
+    @Override
+    public void removeSlackTeamJoinListener(SlackTeamJoinListener listener)
+    {
+        slackTeamJoinListener.remove(listener);
+    }
+
+    @Override
     public void addPinAddedListener(PinAddedListener listener)
     {
         pinAddedListener.add(listener);
@@ -380,4 +488,23 @@ abstract class AbstractSlackSessionImpl implements SlackSession
         pinRemovedListener.remove(listener);
     }
 
+    @Override
+    public void addPresenceChangeListener(PresenceChangeListener listener) {
+        presenceChangeListener.add(listener);
+    }
+
+    @Override
+    public void removePresenceChangeListener(PresenceChangeListener listener) {
+        presenceChangeListener.remove(listener);
+    }
+
+    @Override
+    public void addUserTypingListener(UserTypingListener listener) {
+        userTypingListener.add(listener);
+    }
+
+    @Override
+    public void removeUserTypingListener(UserTypingListener listener) {
+        userTypingListener.remove(listener);
+    }
 }

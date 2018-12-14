@@ -4,24 +4,27 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.ullink.slack.simpleslackapi.SlackChannel;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import com.ullink.slack.simpleslackapi.SlackMessageHandle;
+import com.ullink.slack.simpleslackapi.events.ReactionAdded;
+import com.ullink.slack.simpleslackapi.events.ReactionRemoved;
+import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
+import com.ullink.slack.simpleslackapi.replies.GenericSlackReply;
 import org.threeten.bp.LocalDate;
 import org.threeten.bp.ZoneId;
 import org.threeten.bp.ZonedDateTime;
 import org.threeten.bp.temporal.ChronoUnit;
 import com.ullink.slack.simpleslackapi.ChannelHistoryModule;
-import com.ullink.slack.simpleslackapi.SlackMessageHandle;
 import com.ullink.slack.simpleslackapi.SlackSession;
-import com.ullink.slack.simpleslackapi.events.ReactionAdded;
-import com.ullink.slack.simpleslackapi.events.ReactionRemoved;
-import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.listeners.ReactionAddedListener;
 import com.ullink.slack.simpleslackapi.listeners.ReactionRemovedListener;
 import com.ullink.slack.simpleslackapi.listeners.SlackMessagePostedListener;
-import com.ullink.slack.simpleslackapi.replies.GenericSlackReply;
 
 public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
 
@@ -33,6 +36,32 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
 
     public ChannelHistoryModuleImpl(SlackSession session) {
         this.session = session;
+    }
+
+    @Override
+    public SlackMessagePosted fetchMessageFromChannel(String channelId, String messageTimestamp) {
+        Map<String, String> params = new HashMap<>();
+        params.put("channel", channelId);
+        params.put("count", "1");
+        params.put("latest", messageTimestamp);
+        params.put("inclusive", "true");
+        SlackChannel channel = session.findChannelById(channelId);
+        List<SlackMessagePosted> retrievedList;
+        switch (channel.getType()) {
+            case INSTANT_MESSAGING:
+                retrievedList = fetchHistoryOfChannel(params,FETCH_IM_HISTORY_COMMAND, MessageSubTypeFilter.USERS_AND_INTERNAL_MESSAGES.getRetainedSubtypes());
+                break;
+            case PRIVATE_GROUP:
+                retrievedList = fetchHistoryOfChannel(params,FETCH_GROUP_HISTORY_COMMAND, MessageSubTypeFilter.USERS_AND_INTERNAL_MESSAGES.getRetainedSubtypes());
+                break;
+            default:
+                retrievedList = fetchHistoryOfChannel(params,FETCH_CHANNEL_HISTORY_COMMAND, MessageSubTypeFilter.USERS_AND_INTERNAL_MESSAGES.getRetainedSubtypes());
+                break;
+        }
+        if (retrievedList != null && retrievedList.size()>0) {
+            return retrievedList.get(0);
+        }
+        return null;
     }
 
     @Override
@@ -52,6 +81,16 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
 
     @Override
     public List<SlackMessagePosted> fetchHistoryOfChannel(String channelId, LocalDate day, int numberOfMessages) {
+        return fetchHistoryOfChannel(channelId, day, numberOfMessages, MessageSubTypeFilter.USERS_MESSAGES);
+    }
+
+    @Override
+    public List<SlackMessagePosted> fetchHistoryOfChannel(String channelId, LocalDate day, int numberOfMessages, MessageSubTypeFilter filter) {
+        return fetchHistoryOfChannel(channelId, day, numberOfMessages, filter.getRetainedSubtypes());
+    }
+
+    @Override
+    public List<SlackMessagePosted> fetchHistoryOfChannel(String channelId, LocalDate day, int numberOfMessages, Set<String> allowedSubtypes) {
         Map<String, String> params = new HashMap<>();
         params.put("channel", channelId);
         if (day != null) {
@@ -65,27 +104,31 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
         } else {
             params.put("count", String.valueOf(DEFAULT_HISTORY_FETCH_SIZE));
         }
-        SlackChannel channel =session.findChannelById(channelId);
+        SlackChannel channel = session.findChannelById(channelId);
         switch (channel.getType()) {
             case INSTANT_MESSAGING:
-                return fetchHistoryOfChannel(params,FETCH_IM_HISTORY_COMMAND);
+                return fetchHistoryOfChannel(params,FETCH_IM_HISTORY_COMMAND, allowedSubtypes);
             case PRIVATE_GROUP:
-                return fetchHistoryOfChannel(params,FETCH_GROUP_HISTORY_COMMAND);
+                return fetchHistoryOfChannel(params,FETCH_GROUP_HISTORY_COMMAND, allowedSubtypes);
             default:
-                return fetchHistoryOfChannel(params,FETCH_CHANNEL_HISTORY_COMMAND);
+                return fetchHistoryOfChannel(params,FETCH_CHANNEL_HISTORY_COMMAND, allowedSubtypes);
         }
     }
 
-    private List<SlackMessagePosted> fetchHistoryOfChannel(Map<String, String> params, String command) {
+    private List<SlackMessagePosted> fetchHistoryOfChannel(Map<String, String> params, String command, Set<String> retainedMessageSubtypes) {
         SlackMessageHandle<GenericSlackReply> handle = session.postGenericSlackCommand(params, command);
         GenericSlackReply replyEv = handle.getReply();
-        JSONObject answer = replyEv.getPlainAnswer();
-        JSONArray events = (JSONArray) answer.get("messages");
+        String answer = replyEv.getPlainAnswer();
+        JsonParser parser = new JsonParser();
+        JsonObject jsonObject = parser.parse(answer).getAsJsonObject();
+        JsonArray events = GsonHelper.getJsonArrayOrNull(jsonObject.get("messages"));
         List<SlackMessagePosted> messages = new ArrayList<>();
         if (events != null) {
-            for (Object event : events) {
-                if ((((JSONObject) event).get("subtype") == null)) {
-                    messages.add((SlackMessagePosted) SlackJSONMessageParser.decode(session, (JSONObject) event));
+            for (JsonElement eventJson : events) {
+                JsonObject event = eventJson.getAsJsonObject();
+                String subtype = GsonHelper.getStringOrNull(event.get("subtype"));
+                if (subtype == null || retainedMessageSubtypes.contains(subtype)) {
+                    messages.add((SlackMessagePosted) SlackJSONMessageParser.decode(session, event));
                 }
             }
         }
@@ -116,7 +159,7 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
         return messages;
     }
 
-    public class ChannelHistoryReactionAddedListener implements ReactionAddedListener {
+    public static class ChannelHistoryReactionAddedListener implements ReactionAddedListener {
 
         List<SlackMessagePosted> messages = new ArrayList<>();
 
@@ -131,7 +174,7 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
                 for (String reaction : message.getReactions().keySet()) {
                     if (emojiName.equals(reaction)) {
                         int count = message.getReactions().get(emojiName);
-                        message.getReactions().put(emojiName, count++);
+                        message.getReactions().put(emojiName, ++count);
                         return;
                     }
                 }
@@ -140,7 +183,7 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
         }
     };
 
-    public class ChannelHistoryReactionRemovedListener implements ReactionRemovedListener {
+    public static class ChannelHistoryReactionRemovedListener implements ReactionRemovedListener {
 
         List<SlackMessagePosted> messages = new ArrayList<>();
 
@@ -167,7 +210,7 @@ public class ChannelHistoryModuleImpl implements ChannelHistoryModule {
         }
     }
 
-    public class ChannelHistoryMessagePostedListener implements SlackMessagePostedListener {
+    public static class ChannelHistoryMessagePostedListener implements SlackMessagePostedListener {
 
         List<SlackMessagePosted> messages = new ArrayList<>();
 

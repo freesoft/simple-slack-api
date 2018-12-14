@@ -1,7 +1,16 @@
 package com.ullink.slack.simpleslackapi.replies;
 
-import org.json.simple.JSONObject;
+public class GenericSlackReply implements SlackReply {
+    private String obj;
 
-public interface GenericSlackReply extends SlackReply {
-    JSONObject getPlainAnswer();
+    public GenericSlackReply(String obj)
+    {
+        this.obj = obj;
+    }
+
+    public String getPlainAnswer()
+    {
+        return obj;
+    }
+
 }

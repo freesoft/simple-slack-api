@@ -6,8 +6,6 @@ import com.ullink.slack.simpleslackapi.listeners.SlackConnectedListener;
 import com.ullink.slack.simpleslackapi.replies.*;
 import org.junit.Test;
 
-import java.util.concurrent.TimeUnit;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAbstractSlackSessionImpl
@@ -21,21 +19,21 @@ public class TestAbstractSlackSessionImpl
         @Override
         public void connect()
         {
-            channels.put("channelid1",new SlackChannelImpl("channelid1", "testchannel1", "topicchannel1", "topicchannel1", false));
-            channels.put("channelid2",new SlackChannelImpl("channelid2", "testchannel2", "topicchannel2", "topicchannel2", false));
-            channels.put("channelid3",new SlackChannelImpl("channelid3", "testchannel3", "topicchannel3", "topicchannel3", false));
-            channels.put("channelid4",new SlackChannelImpl("channelid4", "testchannel4", "topicchannel4", "topicchannel4", false));
-            channels.put("channelid5",new SlackChannelImpl("channelid5", "testchannel5", "topicchannel5", "topicchannel5", false));
+            channels.put("channelid1",new SlackChannel("channelid1", "testchannel1", "topicchannel1", "topicchannel1", false, false, false));
+            channels.put("channelid2",new SlackChannel("channelid2", "testchannel2", "topicchannel2", "topicchannel2", false, false, false));
+            channels.put("channelid3",new SlackChannel("channelid3", "testchannel3", "topicchannel3", "topicchannel3", false, false, false));
+            channels.put("channelid4",new SlackChannel("channelid4", "testchannel4", "topicchannel4", "topicchannel4", false, false, false));
+            channels.put("channelid5",new SlackChannel("channelid5", "testchannel5", "topicchannel5", "topicchannel5", false, false, false));
 
-            users.put("userid1",new SlackUserImpl("userid1", "username1", "realname1","userid1@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0)));
-            users.put("userid2",new SlackUserImpl("userid2", "username2", "realname2","userid2@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0)));
-            users.put("userid3",new SlackUserImpl("userid3", "username3", "realname3","userid3@my.mail", "testSkype", "testPhone", "testTitle", true,false,false,false,false,false, false,"tz","tzLabel",new Integer(0)));
-            users.put("userid4",new SlackUserImpl("userid4", "username4", "realname4","userid4@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0)));
-            users.put("userid5",new SlackUserImpl("userid5", "username5", "realname4","userid5@my.mail", "testSkype", "testPhone", "testTitle", true,false,false,false,false,false, false,"tz","tzLabel",new Integer(0)));
+            users.put("userid1",new SlackUserImpl("userid1", "username1", "realname1","userid1@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("userid2",new SlackUserImpl("userid2", "username2", "realname2","userid2@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("userid3",new SlackUserImpl("userid3", "username3", "realname3","userid3@my.mail", "testSkype", "testPhone", "testTitle", true,false,false,false,false,false, false,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("userid4",new SlackUserImpl("userid4", "username4", "realname4","userid4@my.mail", "testSkype", "testPhone", "testTitle", false,false,false,false,false,false, false,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("userid5",new SlackUserImpl("userid5", "username5", "realname4","userid5@my.mail", "testSkype", "testPhone", "testTitle", true,false,false,false,false,false, false,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
 
-            users.put("botid1",new SlackUserImpl("botid1", "botname1", "real bot name 1", null, "testSkype", "testPhone", "testTitle", false,false,false,false,false,false,true,"tz","tzLabel",new Integer(0)));
-            users.put("botid2",new SlackUserImpl("botid2", "botname2", "real bot name 2", null, "testSkype", "testPhone", "testTitle", false,false,false,false,false,false,true,"tz","tzLabel",new Integer(0)));
-            users.put("botid3",new SlackUserImpl("botid3", "botname3", "real bot name 3", null, "testSkype", "testPhone", "testTitle", true,false,false,false,false,false,true,"tz","tzLabel",new Integer(0)));
+            users.put("botid1",new SlackUserImpl("botid1", "botname1", "real bot name 1", null, "testSkype", "testPhone", "testTitle", false,false,false,false,false,false,true,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("botid2",new SlackUserImpl("botid2", "botname2", "real bot name 2", null, "testSkype", "testPhone", "testTitle", false,false,false,false,false,false,true,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
+            users.put("botid3",new SlackUserImpl("botid3", "botname3", "real bot name 3", null, "testSkype", "testPhone", "testTitle", true,false,false,false,false,false,true,"tz","tzLabel",new Integer(0), SlackPersona.SlackPresence.ACTIVE));
         }
 
         @Override
@@ -71,8 +69,36 @@ public class TestAbstractSlackSessionImpl
         }
 
         @Override
+        public SlackMessageHandle<SlackMessageReply> sendEphemeralMessage(SlackChannel channel, SlackUser user, SlackPreparedMessage preparedMessage, SlackChatConfiguration chatConfiguration) {
+            return null;
+        }
+
+        @Override
         public SlackMessageHandle<SlackMessageReply> sendFile(SlackChannel channel, byte[] data, String fileName)
         {
+            return null;
+        }
+
+        @Override
+        public SlackMessageHandle<SlackMessageReply> sendFile(SlackChannel channel, byte[] data, String fileName, String title, String initialComment)
+        {
+            return null;
+        }
+
+        @Override
+        public SlackMessageHandle<SlackMessageReply> sendFileToUser(SlackUser user, byte[] data, String fileName)
+        {
+            return null;
+        }
+
+        @Override
+        public SlackMessageHandle<SlackMessageReply> sendFileToUser(String userName, byte[] data, String fileName)
+        {
+            return null;
+        }
+
+        @Override
+        public SlackMessageHandle<SlackMessageReply> sendMessageToUser(SlackUser user, SlackPreparedMessage preparedMessage) {
             return null;
         }
 
@@ -83,7 +109,18 @@ public class TestAbstractSlackSessionImpl
         }
 
         @Override
+        public SlackMessageHandle updateMessage(String timeStamp, SlackChannel channel, String message, SlackAttachment[] attachments)
+        {
+            return null;
+        }
+
+        @Override
         public SlackMessageHandle addReactionToMessage(SlackChannel channel, String messageTimeStamp, String emojiCode)
+        {
+            return null;
+        }
+
+        @Override public SlackMessageHandle<SlackMessageReply> removeReactionFromMessage(SlackChannel channel, String messageTimeStamp, String emojiCode)
         {
             return null;
         }
@@ -91,6 +128,11 @@ public class TestAbstractSlackSessionImpl
         @Override
         public SlackMessageHandle joinChannel(String channelName)
         {
+            return null;
+        }
+
+        @Override
+        public SlackMessageHandle<SlackChannelReply> setChannelTopic(SlackChannel channel, String topic) {
             return null;
         }
 
@@ -147,7 +189,12 @@ public class TestAbstractSlackSessionImpl
         {
           return null;
         }
-        
+
+        @Override public SlackMessageHandle<ParsedSlackReply> unarchiveChannel(SlackChannel channel)
+        {
+            return null;
+        }
+
         @Override
         public SlackMessageHandle<GenericSlackReply> postGenericSlackCommand(java.util.Map<String,String> params, String command) {
             throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
@@ -168,10 +215,6 @@ public class TestAbstractSlackSessionImpl
             return 0;
         }
 
-        @Override
-        public void setHeartbeat(long heartbeat, TimeUnit unit) {
-
-        }
     }
 
     @Test

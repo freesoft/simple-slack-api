@@ -1,5 +1,6 @@
 package com.ullink.slack.simpleslackapi;
 
+//TODO: collapse this down into SlackPersonaImpl
 public interface SlackPersona {
     enum SlackPresence { UNKNOWN, ACTIVE, AWAY, AUTO }
 
@@ -21,4 +22,5 @@ public interface SlackPersona {
     String getTimeZone();
     String getTimeZoneLabel();
     Integer getTimeZoneOffset();
+    SlackPresence getPresence();
 }

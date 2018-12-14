@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/Ullink/simple-slack-api.svg?branch=master)](https://travis-ci.org/Ullink/simple-slack-api)
 [![GitHub release](https://img.shields.io/github/release/Ullink/simple-slack-api.svg)](https://github.com/Ullink/simple-slack-api/releases)
+[![Coverage Status](https://coveralls.io/repos/github/Ullink/simple-slack-api/badge.svg?branch=master)](https://coveralls.io/github/Ullink/simple-slack-api?branch=master)
 [![Join the chat at https://gitter.im/Ullink/simple-slack-api](https://badges.gitter.im/Ullink/simple-slack-api.svg)](https://gitter.im/Ullink/simple-slack-api?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # Simple Slack API
@@ -14,9 +15,23 @@ With this library you should be able to connect to Slack and to send some messag
 
 You can add this library as a dependency to your Maven or Gradle project through [JitPack](https://jitpack.io/#Ullink/simple-slack-api).
 
+Released versions are also availables on the maven central repository :
+
+* *group id:* com.ullink.slack
+* *artifact id:* simpleslackapi
+
 ## How to use it ?
 
 You can find some samples of the most common use cases in the [samples](https://github.com/Ullink/simple-slack-api/tree/master/samples) folder.
+
+Sample code
+
+```java
+SlackSession session = SlackSessionFactory.createWebSocketSlackSession("slack-bot-auth-token");
+session.connect();
+SlackChannel channel = session.findChannelByName("general"); //make sure bot is a member of the channel.
+session.sendMessage(channel, "hi im a bot" );
+```
 
 ## Features
 
@@ -58,9 +73,10 @@ All these events can be listen provided your bot has the rights to (IE : the bot
 * channel / private group archived event
 * channel / private group unarchived event
 * channel / private group renamed event
-* channel /private group joined event
+* channel / private group joined event
 * reaction added to message event (since v0.5.0)
 * reaction removed from message event (since v0.5.0)
+* team joined event
 
 
 # Thanks
@@ -79,6 +95,8 @@ Many thanks to everyone who has contributed to this library :
 * Harry Fox
 * Logan Clément
 * Rhys Kenwell
+* Aman Gupta
+* Miklos Sagi
 
 (Let me know if I forgot someone, I'll fix that ASAP ;) )
 
